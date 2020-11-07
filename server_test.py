@@ -7,6 +7,9 @@ Usage::
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import logging
 import json
+from queue import Queue
+result = []
+result_que = Queue()
 
 class S(BaseHTTPRequestHandler):
     def _set_response(self):
@@ -25,6 +28,7 @@ class S(BaseHTTPRequestHandler):
         logging.info("POST request,\nPath: %s\nHeaders:\n%s\n\nBody:\n%s\n",
                 str(self.path), str(self.headers), post_data.decode('utf-8'))
         json_object = json.loads(post_data.decode('utf-8'))
+        """
         println(json_object['0'])
         println(json_object['1'])  
         println(json_object['2'])
@@ -32,6 +36,11 @@ class S(BaseHTTPRequestHandler):
         println(json_object['4'])
         println(json_object['5'])
         println(json_object['6'])
+        """
+        result = [json_object['0'],json_object['1'],json_object['2'],json_object['3'],json_object['4'],
+                  json_object['5'],json_object['6']]
+        result_que.put(result)
+        print(result_que.get())
         self._set_response()
         self.wfile.write("POST request for {}".format(self.path).encode('utf-8'))
 
