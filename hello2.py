@@ -99,33 +99,7 @@ class S(BaseHTTPRequestHandler):
             ctrl = json.loads(data)
             ctrl_result = [ctrl['0'],ctrl['1'],ctrl['2'],ctrl['3'],ctrl['4'],ctrl['5'],ctrl['6']]
             ctrl_que.put(ctrl_result)
-            tm = time.time()
-            sec = int(tm%(60*60*24))
             
-            if ctrl_result[6]==101:
-                print("101")
-                for i in range(0,6):
-                    if ctrl_result[i]!=None:
-                        time_signal[0][i] = sec
-                    else:
-                        pass
-            elif ctrl_result[6]==102:
-                print("102")
-                for i in range(0,6):
-                    if ctrl_result[i]!=None:
-                        time_signal[1][i] = sec
-                    else:
-                        pass
-            elif ctrl_result[6]==103:
-                print("103")
-                print(sec)
-                for i in range(0,6):
-                    if ctrl_result[i]!=None:
-                        time_signal[2][i] = sec
-                    else:
-                        pass
-            else:
-                pass
        # print("time0: ", time_signal[0]) 
        # print("time1: ", time_signal[1])
        # print("time2: ", time_signal[2])
@@ -149,6 +123,33 @@ def get_signal():
 def Calculation (a, Flag):
     print("a: ", a)
     signal = ctrl_que.get()
+    tm = time.time()
+    sec = int(tm%(60*60*24))
+            
+    if signal[6]==101:
+        print("101")
+        for i in range(0,6):
+           if signal[i]!=None:
+               time_signal[0][i] = sec
+           else:
+               pass
+    elif signal[6]==102:
+        print("102")
+        for i in range(0,6):
+            if signal[i]!=None:
+                time_signal[1][i] = sec
+            else:
+                pass
+    elif signal[6]==103:
+        print("103")
+        for i in range(0,6):
+            if signal[i]!=None:
+                time_signal[2][i] = sec
+            else:
+                pass
+    else:
+        pass
+
     print("signal: ", signal)
     print("flag in cal: ", Flag)
     check_1 = 0 #초기화
@@ -162,7 +163,7 @@ def Calculation (a, Flag):
             check_1 = 0
     print(check_1)
     if check_1 == 0: ### 수동제어 없었음->일반 자동신호 시행
-        print("auto control \n")
+        print("auto control")
         for i in range (0,6):
             if Flag[i] == True:
                 ###GPIO.output(gigi[i], GPIO.HIGH)
@@ -180,42 +181,42 @@ def Calculation (a, Flag):
             else:
                 time_local[i] = 0
                     
-        print("signal check \n")
+        print("signal check")
         for i in range (0,6): ###수동제어 - 자동제어 시간차 계산
             if time_signal[a][i] > 0:
                 tmp1 = time_signal[a][i]
                 tmp2 = time_local[i]
                 delay = tmp2 - tmp1
                     
-                if delay < 10:
-                    print("signal contrl ")
-                    for i in range (0,6):
-                        if signal[i] == True:
-                            ###GPIO.output(gigi[i], GPIO.HIGH)
-                            print("gigi on")
-                        elif signal[i] == False:
-                            ###GPIO.output(gigi[i], GPIO.LOW)
-                            print("gigi off")
+        if delay < 10:
+            print("signal contrl ")
+            for i in range (0,6):
+                if signal[i] == True:
+                    ###GPIO.output(gigi[i], GPIO.HIGH)
+                    print("gigi on")
+                elif signal[i] == False:
+                    ###GPIO.output(gigi[i], GPIO.LOW)
+                    print("gigi off")
 
-                elif delay > 10: ### 임의의 시간 보다 클때
-                    for i in range (0,6):
-                        if Flag[i] == True:
-                            ###GPIO.output(gigi[i], GPIO.HIGH)
-                            print("gigi on")
-                        elif Flag[i] == False:
-                            ###GPIO.output(gigi[i], GPIO.LOW)
-                            print("gigi off")
-                        time_signal[0][i] = 0 ### 해당하는 시간 초기화
+        elif delay > 10: 
+            for i in range (0,6):
+                if Flag[i] == True:
+                    ###GPIO.output(gigi[i], GPIO.HIGH)
+                    print("gigi on")
+                elif Flag[i] == False:
+                    ###GPIO.output(gigi[i], GPIO.LOW)
+                    print("gigi off")
+                time_signal[0][i] = 0 
                                                 
-                elif time_signal[a][i] == 0:
-                    print("none signal\n") 
-                    for i in range (0,6):
-                        if Flag[i] == True:
-                            ###GPIO.output(gigi[i], GPIO.HIGH)
-                            print("gigi on")
-                        elif Flag[i] == False:
-                            ###GPIO.output(gigi[i], GPIO.LOW)
-                            print("gigi off")
+        elif time_signal[a][i] == 0:
+            print("none signal\n") 
+            for i in range (0,6):
+                if Flag[i] == True:
+                    ###GPIO.output(gigi[i], GPIO.HIGH)
+                    print("gigi on")
+                elif Flag[i] == False:
+                    ###GPIO.output(gigi[i], GPIO.LOW)
+                    print("gigi off")
 
 
 
