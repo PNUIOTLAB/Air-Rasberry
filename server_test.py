@@ -7,9 +7,12 @@ Usage::
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import logging
 import json
+import string
 from queue import Queue
-result = []
-result_que = Queue()
+ctrl_que = Queue()
+set_que = Queue()
+ctrl_result = []
+set_result = []
 
 class S(BaseHTTPRequestHandler):
     def _set_response(self):
@@ -27,22 +30,20 @@ class S(BaseHTTPRequestHandler):
         post_data = self.rfile.read(content_length) # <--- Gets the data itself
         logging.info("POST request,\nPath: %s\nHeaders:\n%s\n\nBody:\n%s\n",
                 str(self.path), str(self.headers), post_data.decode('utf-8'))
-        json_object = json.loads(post_data.decode('utf-8'))
-        """
-        println(json_object['0'])
-        println(json_object['1'])  
-        println(json_object['2'])
-        println(json_object['3'])
-        println(json_object['4'])
-        println(json_object['5'])
-        println(json_object['6'])
-        """
-        result = [json_object['0'],json_object['1'],json_object['2'],json_object['3'],json_object['4'],
-                  json_object['5'],json_object['6']]
-        result_que.put(result)
-        print(result_que.get())
+        data = post_data.decode('utf-8')
+
+        if len(data)<=50:
+            setting = json.loads(data)
+            set_result = [setting['0'],setting['1']]
+            set_que.put(set_result)
+            print(set_que.get())
+        else:
+            ctrl = json.loads(data)
+            ctrl_result = [ctrl['0'],ctrl['1'],ctrl['2'],ctrl['3'],ctrl['4'],ctrl['5'],ctrl['6']]
+            ctrl_que.put(ctrl_result)
+            print(ctrl_que.get())
+
         self._set_response()
-        self.wfile.write("POST request for {}".format(self.path).encode('utf-8'))
 
 def run(server_class=HTTPServer, handler_class=S, port=8080):
     logging.basicConfig(level=logging.INFO)
