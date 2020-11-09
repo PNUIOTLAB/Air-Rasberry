@@ -7,11 +7,12 @@ Usage::
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import logging
 import json
-import queue from Queue
+import string
+from queue import Queue
 ctrl_que = Queue()
 set_que = Queue()
-ctrl_result[]
-set_result[]
+ctrl_result = []
+set_result = []
 
 class S(BaseHTTPRequestHandler):
     def _set_response(self):
@@ -30,24 +31,23 @@ class S(BaseHTTPRequestHandler):
         logging.info("POST request,\nPath: %s\nHeaders:\n%s\n\nBody:\n%s\n",
                 str(self.path), str(self.headers), post_data.decode('utf-8'))
         data = post_data.decode('utf-8')
-        
-        if len(data)<15:
+
+        if len(data)<=50:
             setting = json.loads(data)
             set_result = [setting['0'],setting['1']]
             set_que.put(set_result)
             print(set_que.get())
         else:
             ctrl = json.loads(data)
-            ctrl_reuslt = [ctrl['0'],ctrl['1'],ctrl['2'],ctrl['3'],ctrl['4'],ctrl['5'],ctrl['6']]
-            crtl_que.put(ctrl_result)
+            ctrl_result = [ctrl['0'],ctrl['1'],ctrl['2'],ctrl['3'],ctrl['4'],ctrl['5'],ctrl['6']]
+            ctrl_que.put(ctrl_result)
             print(ctrl_que.get())
 
         self._set_response()
-        self.wfile.write("POST request for {}".format(self.path).encode('utf-8'))
 
 def run(server_class=HTTPServer, handler_class=S, port=8080):
     logging.basicConfig(level=logging.INFO)
-    server_address = ('', port)
+    server_address = ('192.168.0.49', port)
     httpd = server_class(server_address, handler_class)
     logging.info('Starting httpd...\n')
     try:
