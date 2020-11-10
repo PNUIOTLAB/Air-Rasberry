@@ -1,9 +1,10 @@
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import logging
 import json
+import time
 from queue import Queue
 
-time = [[],[],[]]
+s_time = [[0,0,0,0,0,0],[0,0,0,0,0,0],[0,0,0,0,0,0]]
 ctrl_que = Queue()
 set_que = Queue()
 ctrl_result = []
@@ -34,39 +35,33 @@ class S(BaseHTTPRequestHandler):
             ctrl = json.loads(data)
             ctrl_result = [ctrl['0'],ctrl['1'],ctrl['2'],ctrl['3'],ctrl['4'],ctrl['5'],ctrl['6']]
             ctrl_que.put(ctrl_result)
-            
-            if ctrl_result[6]=='101':
-                for i in (0,5):
-                    if ctrl_result[i]==True:
-                        time[0][i] = True
-                    elif ctrl_result[i]==False:
-                        time[0][i] = False
+            tm = time.time()
+            sec = int(tm%(60*60*24))
+
+            if ctrl_result[6]==101:
+                for i in range(0,5):
+                    if ctrl_result[i]==None:
+                        s_time[0][i] = 0
                     else:
-                        time[0][i] = None
-                        
-            elif ctrl_result[6]=='102':
-                for i in (0,5):
-                    if ctrl_result[i]==True:
-                        time[0][i] = True
-                    elif ctrl_result[i]==False:
-                        time[0][i] = False
+                        s_time[0][i] = sec
+            elif ctrl_result[6]==102:
+                for i in range(0,5):
+                    if ctrl_result[i]==None:
+                        s_time[1][i] = 0
                     else:
-                        time[0][i] = None
-                        
-            elif ctrl_result[6]=='103':
-                for i in (0,5):
-                    if ctrl_result[i]==True:
-                        time[0][i] = True
-                    elif ctrl_result[i]==False:
-                        time[0][i] = False
+                        s_time[1][i] = sec
+            elif ctrl_result[6]==103:
+                for i in range(0,5):
+                    if ctrl_result[i]==None:
+                        s_time[2][i] = 0
                     else:
-                        time[0][i] = None
+                        s_time[2][i] = sec
             else:
                 pass
-
-        print(time[0])
-        print(time[1])
-        print(time[2])
+        print(ctrl_que.get())
+        print(s_time[0])
+        print(s_time[1])
+        print(s_time[2])
         self._set_response()
 
 def run(server_class=HTTPServer, handler_class=S, port=8080):
