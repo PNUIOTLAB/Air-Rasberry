@@ -1,14 +1,17 @@
 from multiprocessing import Process, Queue
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from threading import Thread
 import logging
 import json
 import time
+import sys
 
 ###import RPi.GPIO as GPIO
 
 ###GPIO.setmode(GPIO,BCM)
 ###GPIO.setwarnings(False)
 signal=[0]*7 ###수동제어 신호
+flag = [0]*7 ###자동신호
 
 time_signal = [[0]*6]*3###수동제어 신호시간 모음집
 
@@ -17,10 +20,21 @@ time_local = [0]*6 ###자동 신호 시간 리스트
 gigi = [17,27,18,23,24,22] ###기기의 핀 번호
 ###에어컨,히터,환풍기,가습기,제습기,공기청정기
 
-queue3 = Queue() #수동신호 큐
+ctrl_que = Queue() #수동신호 큐
 set_que = Queue()  #임계값 조절 큐
 ctrl_result = []   #수동신호 리스트
-set_result = []    #임계값 리스트 
+set_result = []    #임계값 리스트
+
+#임계값
+Threshold_humidup = 45
+Threshold_humiddown = 35
+
+Threshold_tempup = 28
+Threshold_tempdown = 22
+
+Threshold_dust1 = 80
+Threshold_dust2 = 35
+Threshold_Co2 = 1000
 
 """
 GPIO.setup(aircon, GPIO.OUT, initial = GPIO.LOW)
@@ -50,6 +64,7 @@ class S(BaseHTTPRequestHandler):
             setting = json.loads(data)
             set_result = [setting['0'],setting['1']]
             set_que.put(set_result)
+            
         else:
             ctrl = json.loads(data)
             ctrl_result = [ctrl['0'],ctrl['1'],ctrl['2'],ctrl['3'],ctrl['4'],ctrl['5'],ctrl['6']]
@@ -81,7 +96,7 @@ class S(BaseHTTPRequestHandler):
 
 def run(server_class=HTTPServer, handler_class=S, port=8080):
     logging.basicConfig(level=logging.INFO)
-    server_address = ('192.168.0.49', port)
+    server_address = ('164.125.234.99', port)
     httpd = server_class(server_address, handler_class)
     #logging.info('Starting httpd...\n')
     try:
@@ -90,8 +105,18 @@ def run(server_class=HTTPServer, handler_class=S, port=8080):
         pass
     httpd.server_close()
     #logging.info('Stopping httpd...\n')
+
+"""
+def get_signal():
+    from sys import argv
+    if len(argv) == 2:
+        run(port=int(argv[1]))
+    else:
+        run()
+"""
     
 def Calculation (a):
+    signal = ctrl_que.get()
     check_1 = 0 #초기화
     ###수동제어 체크
     for i in range (0 , 6):
@@ -160,12 +185,10 @@ def Calculation (a):
 
 
 def local_sign(): ### 자동 제어 신호 값 처리 및 연산
-    flag = [0]*7 ###자동신호
     
     ###queue2 = Queue() 자동신호 큐
     ###flag = queue2.get()
     ### 큐2에서 값 받아오기
-    signal = queue3.get()
     ### 큐3에서 값 받아오기
 
     flag = [False, False, False, False, False,False, 101]  ### 자동신호 제어
@@ -186,11 +209,15 @@ def local_sign(): ### 자동 제어 신호 값 처리 및 연산
         Calculation (a)
 
 if __name__ == '__main__':
-    from sys import argv
 
-    if len(argv) == 2:
-        run(port=int(argv[1]))
-    else:
-        run()
-    while 1:
-        local_sign()
+    th3 = Process(target=local_sign)
+    th4 = Process(target=get_signal)
+
+    th3.start()
+    th4.start()
+
+    print("start\n")
+
+    th3.join()
+    th4.join()
+    #local_sign()
