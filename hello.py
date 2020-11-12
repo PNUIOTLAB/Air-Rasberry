@@ -10,12 +10,14 @@ import sys
 
 ###GPIO.setmode(GPIO,BCM)
 ###GPIO.setwarnings(False)
-signal=[0]*7 ###수동제어 신호
-flag = [0]*7 ###자동신호
+signal=[0,0,0,0,0,0,0] ###수동제어 신호
+flag = [0,0,0,0,0,0,0] ###자동신호
 
-time_signal = [[0]*6]*3###수동제어 신호시간 모음집
+time_signal = [[0,0,0,0,0,0],
+               [0,0,0,0,0,0],
+               [0,0,0,0,0,0]]
 
-time_local = [0]*6 ###자동 신호 시간 리스트
+time_local = [0,0,0,0,0,0] ###자동 신호 시간 리스트
 
 gigi = [17,27,18,23,24,22] ###기기의 핀 번호
 ###에어컨,히터,환풍기,가습기,제습기,공기청정기
@@ -76,7 +78,7 @@ class S(BaseHTTPRequestHandler):
         post_data = self.rfile.read(content_length) # <--- Gets the data itself
         data = post_data.decode('utf-8')
 
-        if  len(data)<=50:
+        if  len(data)<=30:
             setting = json.loads(data)
             set_result = [setting['0'],setting['1']]
 
@@ -99,32 +101,41 @@ class S(BaseHTTPRequestHandler):
             ctrl_que.put(ctrl_result)
             tm = time.time()
             sec = int(tm%(60*60*24))
-
+            
             if ctrl_result[6]==101:
-                for i in range(0,5):
-                    if ctrl_result[i]==None:
-                        time_signal[0][i] = 0
-                    else:
+                print("101")
+                for i in range(0,6):
+                    if ctrl_result[i]!=None:
                         time_signal[0][i] = sec
+                    else:
+                        pass
             elif ctrl_result[6]==102:
-                for i in range(0,5):
-                    if ctrl_result[i]==None:
-                        time_signal[1][i] = 0
-                    else:
+                print("102")
+                for i in range(0,6):
+                    if ctrl_result[i]!=None:
                         time_signal[1][i] = sec
-            elif ctrl_result[6]==103:
-                for i in range(0,5):
-                    if ctrl_result[i]==None:
-                        time_signal[2][i] = 0
                     else:
+                        pass
+            elif ctrl_result[6]==103:
+                print("103")
+                print(sec)
+                for i in range(0,6):
+                    if ctrl_result[i]!=None:
                         time_signal[2][i] = sec
+                    else:
+                        pass
             else:
                 pass
+        print(ctrl_result)
+        print("time_signal0: ", time_signal[0])
+        print("time_signal1: ", time_signal[1])
+        print("time_signal2: ", time_signal[2])
+
         self._set_response()
 
 def run(server_class=HTTPServer, handler_class=S, port=8080):
     logging.basicConfig(level=logging.INFO)
-    server_address = ('192.168.0.68', port)
+    server_address = ('192.168.0.49', port)
     httpd = server_class(server_address, handler_class)
     logging.info('Starting httpd...\n')
     httpd.serve_forever()
@@ -139,6 +150,7 @@ def get_signal():
     
 def Calculation (a):
     signal = ctrl_que.get()
+    print("signal: ", signal)
     check_1 = 0 #초기화
     ###수동제어 체크
     for i in range (0 , 6):
@@ -216,7 +228,9 @@ def local_sign(): ### 자동 제어 신호 값 처리 및 연산
     ###flag = [False, False, False, False, False,False, 101]  ### 자동신호 제어
     #signal = [True, True, False, False, False, False, 102] ###수동신호 제어
     ###1번 방 신호 처리
-    flag = tlqkf_que()
+    flag = tlqkf_que.get()
+    print("flag: ", flag)
+    
     if flag[6] == 101:
         a=0
         Calculation (a)
