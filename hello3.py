@@ -1,4 +1,4 @@
-from multiprocessing import Process, Queue
+from multiprocessing import Process, JoinableQueue, Queue
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from threading import Thread
 import logging
@@ -22,9 +22,9 @@ time_local = [0,0,0,0,0,0] ###자동 신호 시간 리스트
 gigi = [17,27,18,23,24,22] ###기기의 핀 번호
 ###에어컨,히터,환풍기,가습기,제습기,공기청정기
 
-ctrl_que = Queue() #수동신호 큐
-set_que = Queue()  #임계값 조절 큐
-tlqkf_que = Queue() #자동신호 큐
+ctrl_que = JoinableQueue() #수동신호 큐
+#set_que = JoinableQueue()  #임계값 조절 큐
+tlqkf_que = JoinableQueue() #자동신호 큐
 
 ctrl_result = []    #수동신호 리스트
 set_result = []    #임계값 리스트
@@ -52,12 +52,12 @@ GPIO.setup(aircleaner, GPIO.OUT, initial=GPIO.LOW)"""
 
 def tlqkf():
     while(1):
-       # flag1 = [True, False, None, None, False, None, 101]
-       # flag2 = [None, None, False, True, None, True, 102]
+        flag1 = [True, False, None, None, False, None, 101]
+        flag2 = [None, None, False, True, None, True, 102]
         flag3 = [False, False, True, False, True, False, 103]
 
-       # tlqkf_que.put(flag1)
-       # tlqkf_que.put(flag2)
+        tlqkf_que.put(flag1)
+        tlqkf_que.put(flag2)
         tlqkf_que.put(flag3)
 
         time.sleep(1)
@@ -85,12 +85,16 @@ class S(BaseHTTPRequestHandler):
             if set_result[0]!=0:
                 Threshold_tempup[0] = set_result[0]+1
                 Threshold_tempdown[0] = set_result[0]-1
+                print("tempup: ",Threshold_tempup[0])
+                print("tempdown: ", Threshold_tempdown[0])
             else:
                 pass
 
             if set_result[1]!=0:
-                Threshold_humiup[0] = set_result[1]+5
-                Threshold_humidown[0] = set_result[1]-5
+                Threshold_humidup[0] = set_result[1]+5
+                Threshold_humiddown[0] = set_result[1]-5
+                print("humiup: ", Threshold_humidup[0])
+                print("humidown: ", Threshold_humiddown[0])
             else:
                 pass
             
@@ -134,7 +138,7 @@ def Calculation (a, Flag):
             elif signal[i]== False:
                time_signal[0][i] = (sec,False)
             elif signal[i] == None:
-                time_signal[0][i] = (sec,None)
+                time_signal[0][i] = (0, None)
             else:
                 pass
     elif signal[6]==102:
@@ -145,7 +149,7 @@ def Calculation (a, Flag):
             elif signal[i] == False:
                 time_signal[1][i] = (sec,False)
             elif signal[i] == None:
-                time_signal[1][i] = (sec,None)
+                time_signal[1][i] = (0, None)
             else:
                 pass
     elif signal[6]==103:
@@ -156,7 +160,7 @@ def Calculation (a, Flag):
             elif signal[i] == False:
                 time_signal[2][i] = (sec,False)
             elif signal[i] == None:
-                time_signal[2][i] = (sec,None)
+                time_signal[2][i] = (0, None)
             else:
                 pass
     else:
@@ -179,10 +183,10 @@ def Calculation (a, Flag):
         for i in range (0,6):
             if Flag[i] == True:
                 ###GPIO.output(gigi[i], GPIO.HIGH)
-                print("gigi on")
+                print("gigi on ",i)
             if Flag[i] == False:
                 ###GPIO.output(gigi[i], GPIO.LOW)
-                print("gigi off")
+                print("gigi off ", i)
 
     elif check_1 == 1:
         for i in range (0,6): ### 자동제어 시간체크(자동 제어 시간 계산 및 리스트 완성)
@@ -195,37 +199,37 @@ def Calculation (a, Flag):
                     
         print("signal check")
         for i in range (0,6): ###수동제어 - 자동제어 시간차 계산
-            if time_signal[a][i] > 0:
-                tmp1 = time_signal[a][i]
+            if time_signal[a][i][0] != 0:
+                tmp1 = time_signal[a][i][0]
                 tmp2 = time_local[i]
                 delay = tmp2 - tmp1 ##딜레이 버려짐 /// 딜레이 확인했습니다!@
                     
-            if delay < 10:
-                print("signal contrl ")
-                if signal[i] == True:
-                    ###GPIO.output(gigi[i], GPIO.HIGH)
-                    print("gigi on")
-                elif signal[i] == False:
-                    ###GPIO.output(gigi[i], GPIO.LOW)
-                    print("gigi off")
+                if delay < 10:
+                    if signal[i] == True:
+                        ###GPIO.output(gigi[i], GPIO.HIGH)
+                        print("gigi on ", i)
+                    elif signal[i] == False:
+                        ###GPIO.output(gigi[i], GPIO.LOW)
+                        print("gigi off ", i)
 
-            elif delay > 10: 
+                elif delay > 10: 
+                    if Flag[i] == True:
+                        ###GPIO.output(gigi[i], GPIO.HIGH)
+                        print("gigi on ", i)
+                    elif Flag[i] == False:
+                        ###GPIO.output(gigi[i], GPIO.LOW)
+                        print("gigi off ", i)
+                    time_signal[0][i] = (0, None) 
+                                            
+            elif time_signal[a][i][0] == 0:
                 if Flag[i] == True:
                     ###GPIO.output(gigi[i], GPIO.HIGH)
-                    print("gigi on")
+                    print("gigi on ", i)
                 elif Flag[i] == False:
                     ###GPIO.output(gigi[i], GPIO.LOW)
-                    print("gigi off")
-                time_signal[0][i] = 0 
-                                                
-            elif time_signal[a][i] == 0:
-                print("none signal\n") 
-                if Flag[i] == True:
-                    ###GPIO.output(gigi[i], GPIO.HIGH)
-                    print("gigi on")
-                elif Flag[i] == False:
-                    ###GPIO.output(gigi[i], GPIO.LOW)
-                    print("gigi off")
+                    print("gigi off ", i)
+
+    ctrl_que.task_done()
 
 
 
@@ -239,20 +243,20 @@ def local_sign(): ### 자동 제어 신호 값 처리 및 연산
 #    flag = [True, True, None, None, False,False, 103]  ### 자동신호 제어
     #signal = [True, True, False, False, False, False, 102] ###수동신호 제어
     ###1번 방 신호 처리
-    flag = tlqkf_que.get()
-    print("get flag: ", flag)
-    print("time0: ", time_signal[0])
-    print("time1: ", time_signal[1])
-    print("time2: ", time_signal[2])
-    if flag[6] == 101:
-        a=0
-        Calculation (a, flag)
-    if flag[6] == 102:
-        a=1
-        Calculation (a, flag)
-    if flag[6] == 103:
-        a=2
-        Calculation (a, flag)
+    while True:
+        flag = tlqkf_que.get()
+        print("get flag: ", flag)
+
+        if flag[6] == 101:
+            a=0
+            Calculation (a, flag)
+        if flag[6] == 102:
+            a=1
+            Calculation (a, flag)
+        if flag[6] == 103:
+            a=2
+            Calculation (a, flag)
+        tlqkf_que.task_done()
 
 if __name__ == '__main__':
 
@@ -269,3 +273,5 @@ if __name__ == '__main__':
     th2.join()
     th3.join()
     th4.join()
+    ctrl_que.join()
+    tlqkf_que.join()
