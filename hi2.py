@@ -6,24 +6,25 @@ import json
 import time
 import sys
 import socket
-import RPi.GPIO as GPIO
 
-GPIO.setmode(GPIO.BCM)
-GPIO.setwarnings(False)
+###import RPi.GPIO as GPIO
 
+###GPIO.setmode(GPIO,BCM)
+###GPIO.setwarnings(False)
 flag = [0,0,0,0,0,0,0] ###자동신호
 time_signal = [[(0,None),(0,None),(0,None),(0,None),(0,None),(0,None)],
                [(0,None),(0,None),(0,None),(0,None),(0,None),(0,None)],
                [(0,None),(0,None),(0,None),(0,None),(0,None),(0,None)]]
 
+data_store = [0,0,0,0,0,0,0,0]
+
 time_local = [0,0,0,0,0,0] ###자동 신호 시간 리스트
 
-fan = [[17,17,13,13,13,13],
-       [13,13,27,27,13,13],
-       [13,13,13,13,22,22]] ###기기의 핀 번호
+gigi = [17,27,18,23,24,22] ###기기의 핀 번호
 ###에어컨,히터,환풍기,가습기,제습기,공기청정기
 
 data_que = Queue()
+#set_que = JoinableQueue()  #임계값 조절 큐
 flag_que = Queue() #자동신호 큐
 
 ctrl_result = []    #수동신호 리스트
@@ -34,32 +35,37 @@ set_result = []    #임계값 리스트
 Threshold_humidup = [45]
 Threshold_humiddown = [35]
 
-Threshold_tempup = [26]
-Threshold_tempdown = [24]
+Threshold_tempup = [28]
+Threshold_tempdown = [22]
 
-Threshold_dust1 = 200
-Threshold_dust2 = 200
-Threshold_Co2 = 6000
+Threshold_dust1 = 80
+Threshold_dust2 = 35
+Threshold_Co2 = 1000
 
 
 Target_device_addr = ["c3:98:3a:11:5a:38","20:20:1d:27:d1:38","ac:1a:30:f0:49:38"]
 
-
-GPIO.setup(fan[0], GPIO.OUT, initial = GPIO.LOW)
-GPIO.setup(fan[1], GPIO.OUT, initial = GPIO.LOW)
-GPIO.setup(fan[2], GPIO.OUT, initial = GPIO.LOW)
+"""
+GPIO.setup(aircon, GPIO.OUT, initial = GPIO.LOW)
+GPIO.setup(heater, GPIO.OUT, initial = GPIO.LOW)
+GPIO.setup(fan, GPIO.OUT, initial = GPIO.LOW)
+GPIO.setup(humidifier, GPIO.OUT, initial=GPIO.LOW)
+GPIO.setup(dehumidifier, GPIO.OUT, initial=GPIO.LOW)
+GPIO.setup(aircleaner, GPIO.OUT, initial=GPIO.LOW)"""
 
 
 class ScanDelegate(DefaultDelegate):
     def __init__(self):
         DefaultDelegate.__init__(self)
 
-#    def handleDiscovery(self, dev, isNewDev, isNewData):
-#        if isNewDev:
-#            print("Discovered device %s" % dev.addr)
-#        elif isNewData:
-#            print("Recieved new data from %s", dev.addr)
+    def handleDiscovery(self, dev, isNewDev, isNewData):
+        if isNewDev:
+            print("Discovered device %s" % dev.addr)
+        elif isNewData:
+            print("Recieved new data from %s", dev.addr)
 
+
+        
 class S(BaseHTTPRequestHandler):
     def _set_response(self):
         self.send_response(200)
@@ -100,12 +106,11 @@ class S(BaseHTTPRequestHandler):
         else:
             ctrl = json.loads(data)
             ctrl_result = [ctrl['0'],ctrl['1'],ctrl['2'],ctrl['3'],ctrl['4'],ctrl['5'],ctrl['6']]
-            print("control signal: ",  ctrl_result)
             tm = time.time()
             sec = int(tm%(60*60*24))
 
-            if ctrl_result[6]==101:
-                print("signal: 101")
+            if signal[6]==101:
+                print("101")
                 for i in range(0,6):
                     if ctrl_result[i]==True:
                         time_signal[0][i] = (sec, True)
@@ -115,8 +120,8 @@ class S(BaseHTTPRequestHandler):
                         time_signal[0][i] = (0, None)
                     else:
                         pass
-            elif ctrl_result[6]==102:
-                print("signal: 102")
+            elif signal[6]==102:
+                print("102")
                 for i in range(0,6):
                     if ctrl_result[i]==True:
                         time_signal[1][i] = (sec,True)
@@ -126,8 +131,8 @@ class S(BaseHTTPRequestHandler):
                         time_signal[1][i] = (0, None)
                     else:
                         pass
-            elif ctrl_result[6]==103:
-                print("signal: 103")
+            elif signal[6]==103:
+                print("103")
                 for i in range(0,6):
                     if ctrl_result[i]==True:
                         time_signal[2][i] = (sec,True)
@@ -140,10 +145,6 @@ class S(BaseHTTPRequestHandler):
             else:
                 pass
 
-
-        print("time0: ", time_signal[0]) 
-        print("time1: ", time_signal[1])
-        print("time2: ", time_signal[2])
         self._set_response()
 
 def ble_scan():
@@ -151,7 +152,8 @@ def ble_scan():
     scanner = Scanner().withDelegate(ScanDelegate())
 
     while True:
-        devices = scanner.scan(10.0)
+        devices = scanner.scan(5.0)
+    
         for dev in devices:
             if dev.addr in Target_device_addr:
                 print("Device %s (%s), RSSI=%d DB" % (dev.addr, dev.addrType, dev.rssi))
@@ -172,14 +174,14 @@ def ble_scan():
                             data_tmp[6] = 103
                         print (data_tmp)
                         data_que.put(data_tmp)
-                        print("data in ble_scan: ", data_tmp)
+                        data_store = [data_tmp[0],data_tmp[1],data_tmp[2],data_tmp[3],data_tmp[4],data_tmp[5]]
+                        print("data_store in ble_scan: ", data_store)
          #온도 습도 초미세먼지 미세먼지 가스 시간 방 
 def make_flag():
     print ("make_flag in")
     oldtemp = 25
     while True:
-        Flag=[False]*14
-        
+        Flag=[False]*9
         if data_que.qsize() <= 0:
             continue
         (temp,humid,micro_dust,dust,gas,time,locate)=data_que.get()
@@ -190,9 +192,9 @@ def make_flag():
             Flag[1]=True
 
         if(humid>Threshold_humidup[0]):
-            Flag[3]=True
-        elif(humid<Threshold_humiddown[0]):
             Flag[2]=True
+        elif(humid<Threshold_humiddown[0]):
+            Flag[3]=True
 
         if(gas>Threshold_Co2):
             Flag[4]=True
@@ -201,18 +203,13 @@ def make_flag():
             Flag[5]=True
 
         if(int(temp-oldtemp) > 10 or int(temp) > 40):
-            Flag[12]=True
+            Flag[7]=True
             oldtemp=temp
 
         Flag[6]=locate
-        Flag[7]=temp
-        Flag[8]=humid
-        Flag[9]=micro_dust
-        Flag[10]=dust
-        Flag[11]=gas
-        Flag[13]=time
+        Flag[8]=time
         print("Flag : ",Flag)
-# Flag : 에어컨, 보일러, 가습기, 제습기, 환풍기, 공기청정기, 방 || 온도, 습도, 초미세, 미세, 가스 || 화제, 시간 
+# Flag : 에어컨, 보일러, 가습기, 제습기, 환풍기, 공기청정기, 방, 화제, 시간
         flag_que.put(Flag)
 
 
@@ -227,23 +224,30 @@ def run(server_class=HTTPServer, handler_class=S, port=8080):
 
 def udp_send(tmp_flag):
     ##tmp_flag[7]에 있는 시간과 일치하는 시간의 데이터를 data store를 찾아서 엮어서 
-    tmp_flag.append((Threshold_tempup[0]+Threshold_tempdown[0])/2)
-    tmp_flag.append((Threshold_humidup[0]+Threshold_humiddown[0])/2)
-    print ("tmp_flag in upd : ",tmp_flag)
-    tmp_flag[0:5] ,tmp_flag[7:12] = tmp_flag[7:12] ,tmp_flag[0:5]
-    tmp_flag.insert(11,tmp_flag.pop(5))
-    before_data=",".join(map(str,tmp_flag))
-    print ("type: ",type(before_data),"before_data: ",before_data)
-    complete_data=before_data.replace("True","1").replace("False","0")
-    print ("complete before_data in udp : ", complete_data)
-    send_data=bytes(complete_data , encoding = "utf-8")
+    print ("in udp_send tmp_flag: ",tmp_flag)
+   
+    total_data=[]
+    print ("data_store in udp: ",data_store)
+    total_data=total_data+data_store
+    print ("total_data",total_data)
+    target_data_index = total_data.index(tmp_flag[7])
+    
+    print ("target_data_index ", target_data_index)
+    print (data_store[int((target_data_index-5)/7) ])
+    print (data_store[int((target_data_index-5)/7)].pop(5)) ##실제 동작
+    print (data_store[ int((target_data_index-5)/7) ]+tmp_flag)
+   
+    complete_data = data_store[ int((target_data_index-5)/7) ]+tmp_flag
+    data_store.pop(int((target_data_index-5)/7))
+    print ("complete data: ", complete_data)
+    before_data="".join(map(str,complete_data))
+    send_data=bytes(before_data , encoding = "utf-8")
+#    send_byte_data=bytes(data_store[(target_data_index-5)/7]+tmp_flag)
+    print("before socket")
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) 
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR,1)
-    sock.settimeout(0)
-    sock.bind(('',55555))
     sock.sendto(send_data,('192.168.0.55',2222))
-#    data = sock.recvfrom(2048)
-    sock.close()
+    print("after socket")
+    data = sock.recvfrom(5555)
 
 def get_signal():
     from sys import argv
@@ -253,33 +257,40 @@ def get_signal():
         run()
     
 def Calculation (a, Flag):
-    print("Room number: ", a)
-    print("flag in Calculation: ", Flag)
+    tmp_flag=[0]*8
+    tmp_flag[6]=Flag[7]
+    tmp_flag[7]=Flag[8]
+    print("a: ", a)
+    print("flag in cal: ", Flag)
     check_1 = 0 #초기화
-    print("signal time table", time_signal[a])
-
-    
-
+    print("time", time_signal[a])
     ###수동제어 체크
     for i in range (0 , 6): 
         if time_signal[a][i][0] != 0:
             check_1 = 1
             break
         else:
-            pass
-#            check_1 = 0
-#    if check_1 == 0: ### 수동제어 없었음->일반 자동신호 시행
-#        print("Auto Control")
-#        for i in range (0,6):
-#            if Flag[i] == True:
-#                #GPIO.output(fan[a], GPIO.HIGH)
-#                print("fan on", i)
-#            elif Flag[i] == False:
-#                #GPIO.output(fan[a], GPIO.LOW)
-#                print("fan off ", i)
+            check_1 = 0
+    print(check_1)
+    if check_1 == 0: ### 수동제어 없었음->일반 자동신호 시행
+        print("auto control")
+        for i in range (0,6):
+            if Flag[i] == True:
+                ###GPIO.output(gigi[i], GPIO.HIGH)
+                print ("gigi on ",i)
+                tmp_flag[i]=Flag[i]
+                print ("tmp-flag in calculation",tmp_flag) 
+                #if 0 not in tmp_flag:
+                #    udp_send(tmp_flag)
+            if Flag[i] == False:
+                ###GPIO.output(gigi[i], GPIO.LOW)
+                print("gigi off ", i)
+                tmp_flag[i]=Flag[i]
+                print ("tmp-flag in calculation",tmp_flag)
+                #if 0 not in tmp_flag:
+                #    udp_send(tmp_flag)
 
-    if check_1 == 1:
-        print("Signal Control")
+    elif check_1 == 1:
         for i in range (0,6): ### 자동제어 시간체크(자동 제어 시간 계산 및 리스트 완성)
             if Flag[i] == True:
                 tm= time.time()
@@ -288,58 +299,77 @@ def Calculation (a, Flag):
             else:
                 time_local[i] = 0
                     
+        print("signal check")
         for i in range (0,6): ###수동제어 - 자동제어 시간차 계산
             if time_signal[a][i][0] != 0:
                 tmp1 = time_signal[a][i][0]
                 tmp2 = time_local[i]
                 delay = tmp2 - tmp1 ##딜레이 버려짐 /// 딜레이 확인했습니다!@
                     
-                if delay < 60:
+                if delay < 10:
                     if time_signal[a][i][1] == True:
-                        #GPIO.output(fan[a], GPIO.HIGH)
-                        #print("fan on ", i)
-                        Flag[i]=True
+                        ###GPIO.output(gigi[i], GPIO.HIGH)
+                        print("gigi on ", i)
+                        tmp_flag[i]=Flag[i]
+                        print ("tmp-flag in calculation",tmp_flag)
+                        #if 0 not in tmp_flag:
+                        #    udp_send(tmp_flag)
                     elif time_signal[a][i][1] == False:
-                        #GPIO.output(fan[a], GPIO.LOW)
-                        #print("fan off ", i)
-                        Flag[i]=False
-
-                elif delay > 60: 
-#                    if Flag[i] == True:
-#                        #GPIO.output(fan[a], GPIO.HIGH)
-#                        print("fan on ", i)
-#                    elif Flag[i] == False:
-#                        #GPIO.output(fan[a], GPIO.LOW)
-#                        print("fan off ", i)
-                    time_signal[0][i] = (0, None)
-
-#            elif time_signal[a][i][0] == 0:
-#                if Flag[i] == True:
-#                    #GPIO.output(gigi[i], GPIO.HIGH)
-#                    print("fan on ", i)
-#                elif Flag[i] == False:
-#                    #GPIO.output(fan[a], GPIO.LOW)
-#                    print("fan off ", i)
+                        ###GPIO.output(gigi[i], GPIO.LOW)
+                        print("gigi off ", i)
+                        tmp_flag[i]=Flag[i]
+                        print ("tmp-flag in calculation",tmp_flag)
+                        #if 0 not in tmp_flag:
+                        #    udp_send(tmp_flag)
+                elif delay > 10: 
+                    if Flag[i] == True:
+                        ###GPIO.output(gigi[i], GPIO.HIGH)
+                        print("gigi on ", i)
+                        tmp_flag[i]=Flag[i]
+                        print ("tmp-flag in calculation",tmp_flag)
+                        #if 0 not in tmp_flag:
+                        #    udp_send(tmp_flag)
+                    elif Flag[i] == False:
+                        ###GPIO.output(gigi[i], GPIO.LOW)
+                        print("gigi off ", i)
+                        tmp_flag[i]=Flag[i]
+                        print ("tmp-flag in calculation",tmp_flag)
+                        #if 0 not in tmp_flag:
+                        #    udp_send(tmp_flag)
+                    time_signal[0][i] = (0, None) 
+                                            
+            elif time_signal[a][i][0] == 0:
+                if Flag[i] == True:
+                    ###GPIO.output(gigi[i], GPIO.HIGH)
+                    print("gigi on ", i)
+                    tmp_flag[i]=Flag[i]
+                    print ("tmp-flag in calculation",tmp_flag)
+                    #if 0 not in tmp_flag:
+                    #   udp_send(tmp_flag)
+                elif Flag[i] == False:
+                    ###GPIO.output(gigi[i], GPIO.LOW)
+                    print("gigi off ", i)
+                    tmp_flag[i]=Flag[i]
+                    print ("tmp-flag in calculation",tmp_flag)
                     
-    udp_send(Flag)
-    print(Flag)
-
-    for i in range(6,12):
-        if Flag[i]==True:
-            GPIO.output(fan[a][i-6], GPIO.HIGH)
-            print ("ROOM ",a," fan ",i-6," on")
-        else:
-            GPIO.output(fan[a][i-6], GPIO.LOW)
- 
+    udp_send(tmp_flag)
 
 
 def local_sign(): ### 자동 제어 신호 값 처리 및 연산
     
-    print("local sign start")
+    ###queue2 = Queue() 자동신호 큐
+    ###flag = queue2.get()
+    ### 큐2에서 값 받아오기
+    ### 큐3에서 값 받아오기
+
+#    flag = [True, True, None, None, False,False, 103]  ### 자동신호 제어
+    #signal = [True, True, False, False, False, False, 102] ###수동신호 제어
+    ###1번 방 신호 처리
     while True:
         if(flag_que.qsize() <= 0):
             continue
         flag = flag_que.get()
+        print("get flag: ", flag)
 
         if flag[6] == 101:
             a=0
@@ -352,7 +382,7 @@ def local_sign(): ### 자동 제어 신호 값 처리 및 연산
             Calculation (a, flag)
 
 if __name__ == '__main__':
-
+	
     th1 = Process(target=ble_scan)
     th2 = Process(target=make_flag)
     th3 = Process(target=local_sign)
@@ -369,7 +399,3 @@ if __name__ == '__main__':
     th2.join()
     th3.join()
     th4.join()
-   
-    GPIO.output(fan[0], GPIO.LOW)
-    GPIO.output(fan[1], GPIO.LOW)
-    GPIO.output(fan[2], GPIO.LOW)
