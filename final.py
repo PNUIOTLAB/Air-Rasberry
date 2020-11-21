@@ -166,7 +166,7 @@ def make_flag():
         if(micro_dust>Threshold_dust1 or dust>Threshold_dust2):
             Flag[5]=True
 
-        if(int(temp-oldtemp) > 10 or int(temp) > 40):
+        if(int(temp-oldtemp) > 10 or float(temp) >= 40.0):
             Flag[12]=True
             oldtemp=temp
 
@@ -368,7 +368,7 @@ def local_sign(): ### 자동 제어 신호 값 처리 및 연산
                     elif signal_result[i] == False:
                         time_signal[1][i] = (sec,False)
                     elif signal_result[i] == None: 
-                        if time_signal[a][i][0]!=0:
+                        if time_signal[1][i][0]!=0:
                             pass
                         else:
                             time_signal[1][i] = (0, None)
