@@ -9,7 +9,7 @@ import socket
 import RPi.GPIO as GPIO
 #import string
 
-'''
+
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
 
@@ -24,7 +24,7 @@ fan = [[19,26,13,13,13,13],
        [13,13,5,6,13,13],
        [13,13,13,13,17,27]] ###기기의 핀 번호
 ###에어컨,히터,가습기,제습기,환풍기,공기청정기
-'''
+
 
 data_que = Queue()
 flag_que = Queue() #자동신호 큐
@@ -35,7 +35,7 @@ ctrl_result = []    #수동신호 리스트
 signal_result = []
 set_result = []    #임계값 리스트
 
-'''
+
 #임계값
 Threshold_tempup = [27]
 Threshold_tempdown = [24]
@@ -46,11 +46,11 @@ Threshold_humiddown = [35]
 Threshold_dust1 = 150
 Threshold_dust2 = 150
 Threshold_Co2 = 1700
-'''
+
 
 Target_device_addr = ["c3:98:3a:11:5a:38","20:20:1D:27:D1:38","ac:1a:30:f0:49:38"]
 
-'''
+
 GPIO.setup(fan[0][0], GPIO.OUT, initial = GPIO.LOW)
 GPIO.setup(fan[0][1], GPIO.OUT, initial = GPIO.LOW)
 GPIO.setup(fan[1][2], GPIO.OUT, initial = GPIO.LOW)
@@ -58,7 +58,7 @@ GPIO.setup(fan[1][3], GPIO.OUT, initial = GPIO.LOW)
 GPIO.setup(fan[2][4], GPIO.OUT, initial = GPIO.LOW)
 GPIO.setup(fan[2][5], GPIO.OUT, initial = GPIO.LOW)
 GPIO.setup(13, GPIO.OUT, initial = GPIO.LOW)
-'''
+
 
 class ScanDelegate(DefaultDelegate):
     def __init__(self):
@@ -71,7 +71,7 @@ class ScanDelegate(DefaultDelegate):
 #        elif isNewData:
 #            print("Recieved new data from %s", dev.addr)
 
-"""
+
 class S(BaseHTTPRequestHandler):
     def _set_response(self):
         self.send_response(200)
@@ -105,7 +105,7 @@ class S(BaseHTTPRequestHandler):
             print("control signal: ",  ctrl_result)
 
         self._set_response()
-"""
+
 def ble_scan():
     data_tmp = [0]*7
     scanner = Scanner().withDelegate(ScanDelegate())
@@ -144,7 +144,7 @@ def ble_scan():
          #온도 습도 초미세먼지 미세먼지 가스 시간 방 
     print("SCAN END")
 
-'''
+
 def make_flag():
 #    print ("make_flag in")
     oldtemp = 25
@@ -197,9 +197,8 @@ def make_flag():
         print("Flag : ",Flag)
 # Flag : 에어컨, 보일러, 가습기, 제습기, 환풍기, 공기청정기, 방 || 온도, 습도, 초미세, 미세, 가스 || 화제, 시간 
         flag_que.put(Flag)
-'''
 
-"""
+
 def run(server_class=HTTPServer, handler_class=S, port=8080):
     logging.basicConfig(level=logging.INFO)
     server_address = ('192.168.0.18', port)
@@ -207,9 +206,9 @@ def run(server_class=HTTPServer, handler_class=S, port=8080):
     logging.info('Starting httpd...\n')
     httpd.serve_forever()
     #logging.info('Stopping httpd...\n')
-"""
 
-"""
+
+
 def udp_send(tmp_flag):
     ##tmp_flag[7]에 있는 시간과 일치하는 시간의 데이터를 data store를 찾아서 엮어서 
     tmp_flag.append((Threshold_tempup[0]+Threshold_tempdown[0])/2)
@@ -230,18 +229,17 @@ def udp_send(tmp_flag):
 #    data = sock.recvfrom(2048)
     sock.close()
 # flag : 온도, 습도, 초미세, 미세, 가스 || 방 || 에어컨, 보일러, 가습기, 제습기, 환풍기, 공기청정기 || 화제, 시간
-"""
 
-"""
+
 def get_signal():
     from sys import argv
     if len(argv) == 2:
         run(port=int(argv[1]))
     else:
         run()
-"""
 
-'''    
+
+    
 def Calculation (a, Flag):
     print("Room number: ", 101+a)
 #    print("flag in Calculation: ", Flag)
@@ -306,9 +304,9 @@ def Calculation (a, Flag):
         else:
             GPIO.output(fan[a][i-6], GPIO.LOW)
             print ("Room", a, "Device ", i-6, "OFF")
-'''
 
-'''
+
+
 def local_sign(): ### 자동 제어 신호 값 처리 및 연산
     while True:
         if ctrl_que.qsize()<=0:
@@ -375,29 +373,28 @@ def local_sign(): ### 자동 제어 신호 값 처리 및 연산
         print()
         print()
         print()
-'''
 
 if __name__ == '__main__':
 
-#    th1 = Process(target=ble_scan)
-#    th2 = Process(target=make_flag)
-#    th3 = Process(target=local_sign)
-   # th4 = Process(target=get_signal)
+    th1 = Process(target=ble_scan)
+    th2 = Process(target=make_flag)
+    th3 = Process(target=local_sign)
+    th4 = Process(target=get_signal)
 
-#    th1.start()
-#    th2.start()
-#    th3.start()
-    #th4.start()
+    th1.start()
+    th2.start()
+    th3.start()
+    th4.start()
 
     print("start\n")
     ble_scan()
-#    th1.join()
-#    th2.join()
-#    th3.join()
-    #th4.join()
+    th1.join()
+    th2.join()
+    th3.join()
+    th4.join()
 
-'''   
+   
     GPIO.output(fan[0], GPIO.LOW)
     GPIO.output(fan[1], GPIO.LOW)
     GPIO.output(fan[2], GPIO.LOW)
-'''
+
