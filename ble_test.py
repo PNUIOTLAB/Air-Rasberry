@@ -18,6 +18,7 @@ print ("Scan Start")
 scanner = Scanner().withDelegate(ScanDelegate())
 data_tmp = [0]*7
 
+
 while True:
     devices = scanner.scan(5.0)
     for dev in devices:
@@ -39,5 +40,4 @@ while True:
                     elif dev.addr == "20:20:1d:27:d1:17":
                        data_tmp[6] = 103
                     print (data_tmp)
-
 

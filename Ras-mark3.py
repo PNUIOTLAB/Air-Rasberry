@@ -42,11 +42,11 @@ send_result = []
 #임계값 [BLE1, BLE2]
 std_humid = [50,50]
 
-std_tempup = [25, 25]
+std_temp = [25, 25]
 
-std_dust1 = [200]
-std_dust2 = [200]
-std_Co2 = [6000]
+std_dust1 = 200
+std_dust2 = 200
+std_Co2 = 6000
 
 Target_device_addr = ["20:20:1d:27:d1:17", "ac:1a:30:f0:49:8c"]
 
@@ -149,6 +149,8 @@ def ble_scan():
 def make_flag():
 #    print ("make_flag in")
     oldtemp = 25
+    i = 0
+
     while True:
         Flag=[False]*16
         if thres_que.qsize() > 0:
@@ -176,14 +178,12 @@ def make_flag():
 
         if room == '101':
             i = 0
-        elif locate == '102':
+        elif room == '102':
             i = 1
         
-        if(temp > std_temp[i]+1):
-            print ("Threshold tempup: ", std_temp[i]+1) 
+        if(temp > std_temp[i]+1): 
             Flag[7]=True
         elif(temp < std_temp[i]-1):
-            print ("Threshold tempdown: ",std_temp[i]-1)
             Flag[8]=True
 
         if(humid > std_humid[i]+10):
@@ -216,7 +216,7 @@ def make_flag():
         flag_que.put(Flag)
 
 
-def run(server_class=HTTPServer, handler_class=S, port=5000):
+def run(server_class=HTTPServer, handler_class=S, port=8080):
     logging.basicConfig(level=logging.INFO)
     server_address = ('192.168.0.26', port)
     httpd = server_class(server_address, handler_class)
@@ -319,10 +319,10 @@ def Calculation (a, Flag):
 
     for i in range(7,13):
         if Flag[i]==True:
-            GPIO.output(fan[a][i-7], GPIO.HIGH)
+            GPIO.output(device[a][i-7], GPIO.HIGH)
             print ("Room", a, "Device ", i-7, "ON")
         else:
-            GPIO.output(fan[a][i-7], GPIO.LOW)
+            GPIO.output(device[a][i-7], GPIO.LOW)
             print ("Room", a, "Device ", i-7, "OFF")
 
 
@@ -401,6 +401,5 @@ if __name__ == '__main__':
     th4.join()
 
    
-    GPIO.output(fan[0], GPIO.LOW)
-    GPIO.output(fan[1], GPIO.LOW)
-    GPIO.output(fan[2], GPIO.LOW)
+    GPIO.output(device[0], GPIO.LOW)
+    GPIO.output(device[1], GPIO.LOW)

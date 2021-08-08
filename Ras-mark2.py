@@ -2,11 +2,9 @@ from multiprocessing import Process, JoinableQueue, Queue, Manager
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from bluepy.btle import Scanner, DefaultDelegate
 from flask import Flask, request
-import logging
 import json
 import time
 import sys
-import socket
 import requests
 import RPi.GPIO as GPIO
 
@@ -43,13 +41,13 @@ send_result = []
 #임계값 [BLE1, BLE2]
 std_humid = [50,50]
 
-std_tempup = [25, 25]
+std_temp = [25, 25]
 
-std_dust1 = [200]
-std_dust2 = [200]
-std_Co2 = [6000]
+std_dust1 = 200
+std_dust2 = 200
+std_Co2 = 6000
 
-Target_device_addr = ["20:20:1d:27:d1:17"]
+Target_device_addr = ["20:20:1d:27:d1:17", "ac:1a:30:f0:49:8c"]
 
 
 GPIO.setup(device[0][0], GPIO.OUT, initial = GPIO.LOW)
@@ -66,15 +64,15 @@ app = Flask(__name__)
 class ScanDelegate(DefaultDelegate):
     def __init__(self):
         DefaultDelegate.__init__(self)
-
+    '''
     def handleDiscovery(self, dev, isNewDev, isNewData):
         if isNewDev:
             print("Discovered device", dev.addr)
         elif isNewData:
             print("Recieved new data from", dev.addr)
+    '''
 
-
-def bles_scan():
+def ble_scan():
     print ("Scan Start")
     scanner = Scanner().withDelegate(ScanDelegate())
     data_tmp = [0]*7
@@ -93,7 +91,7 @@ def bles_scan():
                         data_tmp[3] = int(value[12]+value[13]+value[14]+value[15], 16)
                         data_tmp[4] = float(str(int(value[-6]+value[-5]+value[-4]+value[-3], 16))+'.'+str(int(value[-2]+value[-1], 16)))
                         data_tmp[5] = time.strftime('%Y-%m-%d %H:%M:%S')
-                        if dev.addr == "c3:98:3a:11:5a:38":
+                        if dev.addr == "ac:1a:30:f0:49:8c":
                            data_tmp[6] = 101
                         elif dev.addr == "20:20:1d:27:d1:17":
                            data_tmp[6] = 102
@@ -103,11 +101,11 @@ def bles_scan():
 
 @app.route('/setDevice', methods=['POST']) # 사용자 수동 제어 수신
 def set_device():
-
+    print("GET Control  DATA")
     params = json.loads(request.get_data(), encoding='utf-8') # json 타입으로 데이터 수신
     
     if len(params) == 0:
-        return 'No params"
+        return "No params"
             
     else: 
         set_ctrl = [params['Room'],params['AC'],params['Boiler'],params['Dehumidifier'], # 기기별 제어 신호 
@@ -116,15 +114,17 @@ def set_device():
         print("control siganl: ", ctrl_result)
 
         ctrl_que.put(set_result)
-        
+    
+    print("CONTROL FINISH")    
 
 @app.route('/setEnvir', methods=['POST']) # 사용자 온습도 설정 수신
 def set_envir():
-
+    
+    print("GET SETTING DATA")
     params = json.loads(request.get_data(), encoding='utf-8') # json 타입으로 데이터 수신
     
     if len(params) == 0:
-        return 'No params"
+        return "No params"
 
     
     else: 
@@ -135,11 +135,12 @@ def set_envir():
 
         elif set_result[2]!=0:
                 thres_que.put((set_result[0], set_result[2], "temp"))
-
+    print("SET FINISH")
 
 def make_flag(): 
 
     oldtemp = 25
+    r = 0
     
     while True:
         
@@ -166,26 +167,26 @@ def make_flag():
                  elif room == '102':
                      std_temp[1] = data
                  
-        if data_que.qsize() <= 0:
+        if (data_que.qsize() <= 0):
             continue
         
         (temp, humid, micro_dust, dust, gas, time, room)=data_que.get()
 
         if room == '101':
-            i = 0
-        elif locate == '102':
-            i = 1
+            r = 0
+        elif room == '102':
+            r = 1
+
+        print("room: ", r)
         
-        if(temp > std_temp[i]+1):
-            print ("Threshold tempup: ", std_temp[i]+1) 
+        if(temp > std_temp[r]+1): 
             Flag[7]=True
-        elif(temp < std_temp[i]-1):
-            print ("Threshold tempdown: ",std_temp[i]-1)
+        elif(temp < std_temp[r]-1):
             Flag[8]=True
 
-        if(humid > std_humid[i]+10):
+        if(humid > std_humid[r]+10):
             Flag[9]=True
-        elif(humid < std_humid[i]-10):
+        elif(humid < std_humid[r]-10):
             Flag[10]=True
 
         if(micro_dust > std_dust1 or dust > std_dust2):
@@ -205,8 +206,8 @@ def make_flag():
         Flag[4] = dust
         Flag[5] = micro_dust
         Flag[6] = gas
-        Flag[14] = std_temp[i]
-        Flag[15] = std_humid[i]
+        Flag[14] = std_temp[r]
+        Flag[15] = std_humid[r]
         print("Flag : ",Flag)
         
 # Flag : 시간 방 온도 습도 미세 초미세 Co2 || 에어컨 보일러 제습기 가습기 공기청정기 환풍기 || 화재 기준온도 기준습도
@@ -216,9 +217,9 @@ def make_flag():
 @app.route('/send_post', methods=['GET'])
 def send_post():
 
-    if send_que.qsize() = 0:
-        continue
-    
+    if (send_que.qsize() <= 0):
+        return "No params"
+
     send_result = send_que.get()
 
     print("data for send: ", send_result)
@@ -242,7 +243,7 @@ def send_post():
             "StandHumid": send_result[15]
         }
     
-    res = requests.post("http://DOMAIN:9000/ENVIRdata", data=json.dumps(params))
+    res = requests.post("http://192.168.0.27:9000/ENVIRdata", data=json.dumps(params))
 
     return res.text
 
@@ -378,8 +379,8 @@ def local_sign(): ### 자동 제어 신호 값 처리 및 연산
 
 if __name__ == '__main__':
 
-    GPIO.output(fan[0], GPIO.LOW)
-    GPIO.output(fan[1], GPIO.LOW)
+    GPIO.output(device[0], GPIO.LOW)
+    GPIO.output(device[1], GPIO.LOW)
 
     
     th1 = Process(target=ble_scan)
@@ -393,9 +394,9 @@ if __name__ == '__main__':
 
     app.run(debug=True)
 
-    th1.join()
-    th2.join()
-    th3.join()
+#    th1.join()
+#    th2.join()
+#    th3.join()
    
     
 
