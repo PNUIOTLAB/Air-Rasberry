@@ -6,11 +6,7 @@ import json
 import time
 import sys
 sys.path.append("~/.local/lib/python3.7/site-packages")
-sys.path.append("~/.local/lib/python3.7/site-packages/websockets")
-sys.path.append("/usr/local/lib/python3.7/dist-packages/websockets")
-sys.path.append("/home/pi/.local/lib/python3.7/site-packages/websockets")
-sys.path.append("/home/pi/.local/lib/python3.7/site-packages")
-print(sys.path)
+sys.path.append("")
 import socket
 import RPi.GPIO as GPIO
 
@@ -19,9 +15,9 @@ import websockets
 
 async def connect():
     async with websockets.connect("ws://192.168.0.27:9000/ws") as websocket:
-        await websocket.send("Test socket !!")
-        data = await websocket.recv()
-        print("ws from server :",data)
+        await websocket.send("Test socket !!");
+        data = await websocket.recv();
+        print("ws from server :",data);
 
 #import string
 
