@@ -17,12 +17,6 @@ import RPi.GPIO as GPIO
 import asyncio
 import websockets
 
-async def connect():
-    async with websockets.connect("ws://192.168.0.27:9000/ws") as websocket:
-        await websocket.send("Test socket !!")
-        data = await websocket.recv()
-        print("ws from server :",data)
-
 #import string
 
 
@@ -241,16 +235,25 @@ def run(server_class=HTTPServer, handler_class=S, port=8080):
     #logging.info('Stopping httpd...\n')
 
 
-
+async def connect(tmp_flag):
+    async with websockets.connect("ws://192.168.0.27:9000/ws") as websocket:
+        before_data=",".join(map(str,tmp_flag))
+        complete_data=before_data.replace("True","1").replace("False","0")
+        print ("data which send to sever by udp : ", complete_data)
+        await websocket.send(complete_data)
+        data = await websocket.recv()
+        print("ws from server :",data)
+        
+'''        
 def udp_send(tmp_flag):
-    '''
+    
     ##tmp_flag[7]에 있는 시간과 일치하는 시간의 데이터를 data store를 찾아서 엮어서 
     tmp_flag.append((Threshold_tempup[0]+Threshold_tempdown[0])/2)
     tmp_flag.append((Threshold_humidup[0]+Threshold_humiddown[0])/2)
 #    print ("tmp_flag in upd : ",tmp_flag)
     tmp_flag[0:5] ,tmp_flag[7:12] = tmp_flag[7:12] ,tmp_flag[0:5]
     tmp_flag.insert(11,tmp_flag.pop(5))
-    '''
+    
     before_data=",".join(map(str,tmp_flag))
 #    print ("type: ",type(before_data),"before_data: ",before_data)
     complete_data=before_data.replace("True","1").replace("False","0")
@@ -265,7 +268,7 @@ def udp_send(tmp_flag):
 #    sock.close()
 
     asyncio.get_event_loop().run_until_complete(connect())
-
+'''
 # Flag : 시간 방 온도 습도 미세 초미세 Co2 || 에어컨 보일러 제습기 가습기 공기청정기 환풍기 || 화재 기준온도 기준습도
 
 
