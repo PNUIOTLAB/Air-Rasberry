@@ -102,7 +102,7 @@ class S(BaseHTTPRequestHandler):
         if  len(data) <= 70:
             setting = json.loads(data)
             set_result = [setting['Room'], setting['set_humid'], setting['set_temp']]
-            print("Room, temp, humid", set_result)
+            print("Setting Room, temp, humid", set_result)
             if set_result[1]!=0:
                 thres_que.put((set_result[0], set_result[1], "humid"))
             
@@ -117,7 +117,7 @@ class S(BaseHTTPRequestHandler):
             
             ctrl_que.put(ctrl_result)
             
-            print("control signal: ",  ctrl_result)
+            print("Get control signal: ",  ctrl_result)
 
         self._set_response()
 
@@ -128,7 +128,6 @@ def ble_scan():
     print(" SCAN START")
 
     while True:
-        print("SCANNING......")
         devices = scanner.scan(5.0)
         for dev in devices:
             print("check")
@@ -220,7 +219,7 @@ def make_flag():
         Flag[6] = gas
         Flag[14] = std_temp[i]
         Flag[15] = std_humid[i]
-        print("Flag : ",Flag)
+        print("semi-final Flag : ",Flag)
         
 # Flag : 시간 방 온도 습도 미세 초미세 Co2 || 에어컨 보일러 제습기 가습기 공기청정기 환풍기 || 화재 기준온도 기준습도
         flag_que.put(Flag)
@@ -234,7 +233,14 @@ def run(server_class=HTTPServer, handler_class=S, port=8080):
     httpd.serve_forever()
     #logging.info('Stopping httpd...\n')
 
-
+def get_signal():
+    from sys import argv
+    if len(argv) == 2:
+        run(port=int(argv[1]))
+    else:
+        run()
+    
+    
 async def connect(tmp_flag):
     async with websockets.connect("ws://192.168.0.27:9000/ws") as websocket:
         before_data=",".join(map(str,tmp_flag))
@@ -272,18 +278,9 @@ def udp_send(tmp_flag):
 # Flag : 시간 방 온도 습도 미세 초미세 Co2 || 에어컨 보일러 제습기 가습기 공기청정기 환풍기 || 화재 기준온도 기준습도
 
 
-def get_signal():
-    from sys import argv
-    if len(argv) == 2:
-        run(port=int(argv[1]))
-    else:
-        run()
-
-
     
 def Calculation (a, Flag):
-    print("Room number: ", 101+a)
-#    print("flag in Calculation: ", Flag)
+    print("Room number: ", 101+a, "calculate final flag")
     check_1 = 0 #초기화
     print("time signal 101", time_signal[0])
     print("time signal 102", time_signal[1])
@@ -336,8 +333,9 @@ def Calculation (a, Flag):
      
     print("final result: ", Flag)
 
-    udp_send(Flag)
-    flag_result = False
+    connect(Flag)
+    
+# Flag : 시간 방 온도 습도 미세 초미세 Co2 || 에어컨 보일러 제습기 가습기 공기청정기 환풍기 || 화재 기준온도 기준습도
 
     for i in range(7,13):
         if Flag[i]==True:
@@ -360,7 +358,7 @@ def local_sign(): ### 자동 제어 신호 값 처리 및 연산
             sec = tm%(60*60)
     
             if signal_result[0]=="101":
-                print("signal: 101")
+                print("make time signal: 101")
                 for i in range(1,7):
                     if signal_result[i]==True:
                         time_signal[0][i-1] = (sec, True)
@@ -373,7 +371,7 @@ def local_sign(): ### 자동 제어 신호 값 처리 및 연산
                            time_signal[0][i-1] = (0, None)
                             
             elif signal_result[0]=="102":
-                print("signal: 102")
+                print("make time signal: 102")
                 for i in range(1, 7):
                     if signal_result[i]==True:
                         time_signal[1][i-1] = (sec,True)
@@ -399,8 +397,6 @@ def local_sign(): ### 자동 제어 신호 값 처리 및 연산
             a = 1
             Calculation (a, flag)
 
-        print("========================================================")
-        print()
         print()
 
 if __name__ == '__main__':
