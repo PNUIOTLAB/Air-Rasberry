@@ -16,6 +16,7 @@ import RPi.GPIO as GPIO
 
 import asyncio
 import websockets
+import requests
 
 #import string
 
@@ -35,8 +36,8 @@ time_signal = [[(0,None),(0,None),(0,None),(0,None),(0,None),(0,None)], #BLE1
 time_local = [0,0,0,0,0,0]
 
 # 제어 장치 [에어컨, 히터, 제습기, 가습기,공기청정기, 환풍기]
-device = [[17,27,13,13,13,22],  # BLE1은 에어컨, 히터, 환풍기 시연
-          [13,13,16,20,21,13]]  # BLE2는 제습기, 가습기, 공기청정기 시연
+device = [[26,19,13,21,20,16],  # BLE1은 에어컨, 히터, 환풍기 시연
+          [24,23,18,22,27,17]]  # BLE2는 제습기, 가습기, 공기청정기 시연
 
 data_que = Queue() # 환경요소 데이터 큐
 flag_que = Queue() # 자동 제어신호 큐
@@ -88,12 +89,12 @@ class S(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header('Content-type', 'text/html')
         self.end_headers()
-
+    '''
     def do_GET(self):
         logging.info("GET request,\nPath: %s\nHeaders:\n%s\n", str(self.path), str(self.headers))
         self._set_response()
         self.wfile.write("GET request for {}".format(self.path).encode('utf-8'))
-
+    '''
     def do_POST(self):
         content_length = int(self.headers['Content-Length']) # <--- Gets the size of data
         post_data = self.rfile.read(content_length) # <--- Gets the data itself
@@ -147,7 +148,7 @@ def ble_scan():
                         data_tmp[5] = time.strftime('%Y%m%d%H%M%S')
                         if dev.addr == "ac:1a:30:f0:49:8c":
                             data_tmp[6] = 101
-                        elif dev.addr == "20:20:1D:27:D1:38":
+                        elif dev.addr == "20:20:1d:27:d1:17":
                             data_tmp[6] = 102
                         data_que.put(data_tmp)
                         print("data in ble_scan: ", data_tmp)
@@ -239,27 +240,27 @@ def get_signal():
         run(port=int(argv[1]))
     else:
         run()
-    
-    
+ 
 async def connect(tmp_flag):
+    print("IN ASYNC")
     async with websockets.connect("ws://192.168.0.27:9000/ws") as websocket:
         before_data=",".join(map(str,tmp_flag))
         complete_data=before_data.replace("True","1").replace("False","0")
         print ("data which send to sever by udp : ", complete_data)
         await websocket.send(complete_data)
-        data = await websocket.recv()
-        print("ws from server :",data)
-        
-'''        
+#        data = await websocket.recv()
+        print("ws finish")
+
+'''
 def udp_send(tmp_flag):
-    
+
     ##tmp_flag[7]에 있는 시간과 일치하는 시간의 데이터를 data store를 찾아서 엮어서 
     tmp_flag.append((Threshold_tempup[0]+Threshold_tempdown[0])/2)
     tmp_flag.append((Threshold_humidup[0]+Threshold_humiddown[0])/2)
 #    print ("tmp_flag in upd : ",tmp_flag)
     tmp_flag[0:5] ,tmp_flag[7:12] = tmp_flag[7:12] ,tmp_flag[0:5]
     tmp_flag.insert(11,tmp_flag.pop(5))
-    
+
     before_data=",".join(map(str,tmp_flag))
 #    print ("type: ",type(before_data),"before_data: ",before_data)
     complete_data=before_data.replace("True","1").replace("False","0")
@@ -310,10 +311,11 @@ def Calculation (a, Flag):
             if Flag[i] == True:
                 tm= time.time()
                 secs = int(tm % (60*60))
-                time_local[i] = secs
+                print("secs: ", secs )
+                time_local[i-7] = secs
             else:
-                time_local[i] = 0
-                    
+                time_local[i-7] = 0
+
         for i in range (0,6): ###수동제어 - 자동제어 시간차 계산
             if time_signal[a][i][0] != 0:
                 tmp1 = time_signal[a][i][0]
@@ -324,16 +326,16 @@ def Calculation (a, Flag):
                     if time_signal[a][i][1] == True:
                         #GPIO.output(fan[a], GPIO.HIGH)
                         #print("fan on ", i)
-                        Flag[i]=True
+                        Flag[i+7]=True
                     elif time_signal[a][i][1] == False:
-                        Flag[i]=False
+                        Flag[i+7]=False
 
                 elif delay > 60: 
                     time_signal[a][i] = (0, None)
-     
+ 
     print("final result: ", Flag)
 
-    connect(Flag)
+#    asyncio.get_event_loop().run_until_complete(connect(Flag))
     
 # Flag : 시간 방 온도 습도 미세 초미세 Co2 || 에어컨 보일러 제습기 가습기 공기청정기 환풍기 || 화재 기준온도 기준습도
 
@@ -345,6 +347,18 @@ def Calculation (a, Flag):
             GPIO.output(device[a][i-7], GPIO.LOW)
             print ("Room", a, "Device ", i-7, "OFF")
 
+#    asyncio.get_event_loop().run_until_complete(connect(Flag))
+    url = "http://192.168.0.27:9000/ENVIRdata"
+    headers = {'Content-Type':'application/json; charset=utf-8'}
+#    data ={}
+    postdata = json.dumps({"Time":Flag[0], "Room":Flag[1], "Temp":Flag[2], "Humid":Flag[3], "PM25":Flag[4],
+                                       "PM10":Flag[5], "Co2":Flag[6], "AC":Flag[7], "Boiler":Flag[8], "Dehumidifier":Flag[9],
+                                       "Humidifier":Flag[10], "AirCleaner":Flag[11], "Fan":Flag[12], "Fire":Flag[13],
+                                       "StandTemp":Flag[14], "StandHumid":Flag[15]})
+
+    print("[POST DATA]" ,postdata)
+    response = requests.post(url,headers=headers, data=postdata)
+    print(response.status_code, response.reason)
 
 
 def local_sign(): ### 자동 제어 신호 값 처리 및 연산
