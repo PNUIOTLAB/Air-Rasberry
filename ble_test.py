@@ -2,7 +2,7 @@ from bluepy.btle import Scanner, DefaultDelegate
 import time
 import sys
 
-Target_device_addr = ["20:20:1d:27:d1:17"]
+Target_device_addr = ["20:20:1d:27:d1:17", "ac:1a:30:f0:49:8c"]
 
 class ScanDelegate(DefaultDelegate):
     def __init__(self):
@@ -35,7 +35,7 @@ while True:
                     data_tmp[5] = time.strftime('%Y-%m-%d %H:%M:%S')
                     if dev.addr == "c3:98:3a:11:5a:38":
                        data_tmp[6] = 101
-                    elif dev.addr == "ac:1a:30:f0:49:38":
+                    elif dev.addr == "ac:1a:30:f0:49:8c":
                        data_tmp[6] = 102
                     elif dev.addr == "20:20:1d:27:d1:17":
                        data_tmp[6] = 103
